@@ -45,7 +45,7 @@
 
     function sendToGoogleSheet(productName, productCode, serial, yearMonth) {
       fetch("https://corsproxy.io/?https://script.google.com/macros/s/AKfycbw3e2XDPKyP37ymBBiqGkaXyaZG6FKJrKCGKjlYZPEBNDUH-XH_CCIWulCZGIcRAM9vyQ/exec", {
-	  method: "POST",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productName: productName,
