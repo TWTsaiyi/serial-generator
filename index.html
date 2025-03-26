@@ -1,130 +1,116 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>流水編號產生器</title>
-    <script>
-        const productCodes = {
-            "PLLA": "P", "DYS": "D", "NRN": "N", "BOTOX": "B", "PLUS": "HP", "VOLUX": "HX", "VOLUMA": "HL",
-            "VOLBELLA": "HB", "VOLITE": "HT", "BKR": "BK", "RDS": "R", "SXD": "S", "ELS": "E", "ELM": "EM",
-            "CF": "C", "QT": "Q", "VT": "V", "DT": "DT", "NL": "NT", "MTD": "MD", "MTR": "MR", "PDLA": "PD",
-            "VBL50": "VBL50", "VBL200": "VBL200"
-        };
+  <meta charset="UTF-8">
+  <title>流水編號產生器</title>
+  <script>
+    const productCodes = {
+      "PLLA": "P", "DYS": "D", "NRN": "N", "BOTOX": "B", "PLUS": "HP",
+      "VOLUX": "HX", "VOLUMA": "HL", "VOLBELLA": "HB", "VOLITE": "HT",
+      "BKR": "BK", "RDS": "R", "SXD": "S", "ELS": "E", "ELM": "EM",
+      "CF": "C", "QT": "Q", "VT": "V", "DT": "DT", "NL": "NT",
+      "MTD": "MD", "MTR": "MR", "PDLA": "PD", "VBL50": "VBL50", "VBL200": "VBL200"
+    };
 
-        let generatedNumbers = JSON.parse(localStorage.getItem("generatedNumbers")) || {};
+    let generatedNumbers = JSON.parse(localStorage.getItem("generatedNumbers")) || {};
 
-        function generateSerialNumbers() {
-            const productName = document.getElementById("productName").value;
-            const productCode = productCodes[productName] || "";
-            if (!productCode) {
-                alert("請選擇有效的產品名稱");
-                return;
-            }
+    function generateSerialNumbers() {
+      const productName = document.getElementById("productName").value;
+      const productCode = productCodes[productName] || "";
+      if (!productCode) return alert("請選擇有效的產品名稱");
 
-            const now = new Date();
-            const year = now.getFullYear().toString().slice(-2);
-            const month = document.getElementById("month").value.padStart(2, '0');
-            const quantity = parseInt(document.getElementById("quantity").value);
+      const now = new Date();
+      const year = now.getFullYear().toString().slice(-2);
+      const month = document.getElementById("month").value.padStart(2, '0');
+      const quantity = parseInt(document.getElementById("quantity").value);
+      if (!month || isNaN(quantity) || quantity <= 0) return alert("請輸入有效的月份及數量");
 
-            if (!month || isNaN(quantity) || quantity <= 0) {
-                alert("請輸入有效的月份及數量");
-                return;
-            }
+      const key = productCode + year + month;
+      let serialNumber = localStorage.getItem(key);
+      serialNumber = serialNumber ? parseInt(serialNumber) + 1 : 1;
 
-            const key = productCode + year + month;
-            let serialNumber = localStorage.getItem(key);
-            serialNumber = serialNumber ? parseInt(serialNumber) + 1 : 1;
+      if (!generatedNumbers[year + month]) generatedNumbers[year + month] = [];
 
-            if (!generatedNumbers[year + month]) {
-                generatedNumbers[year + month] = [];
-            }
+      for (let i = 0; i < quantity; i++) {
+        const serial = (serialNumber + i).toString().padStart(3, '0');
+        const fullCode = `${productCode}${serial}${year}${month}`;
+        generatedNumbers[year + month].push(fullCode);
+        sendToGoogleSheet(productName, productCode, serial, `${year}${month}`);
+      }
 
-            for (let i = 0; i < quantity; i++) {
-                const formattedSerial = (serialNumber + i).toString().padStart(3, '0');
-                const serialCode = `${productCode}${formattedSerial}${year}${month}`;
+      localStorage.setItem(key, serialNumber + quantity - 1);
+      localStorage.setItem("generatedNumbers", JSON.stringify(generatedNumbers));
+      displayResults();
+    }
 
-                generatedNumbers[year + month].push(serialCode);
-                sendToGoogleSheet(productName, productCode, formattedSerial, `${year}${month}`);
-            }
+    function sendToGoogleSheet(productName, productCode, serial, yearMonth) {
+      fetch("https://script.google.com/macros/s/AKfycbzemYdp_2iU-xBikgWf_bUm0anjDCbYBPs6AbwIoLF1xJ8E2_DD5kNXv67A8IRg_ILB3Q/exec", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productName: productName,
+          productCode: productCode,
+          serialNumber: productCode + serial + yearMonth,
+          yearMonth: yearMonth
+        })
+      })
+      .then(res => res.text())
+      .then(response => console.log("✅ 已儲存至 Google Sheets：", response))
+      .catch(err => console.error("❌ 儲存失敗：", err));
+    }
 
-            localStorage.setItem(key, serialNumber + quantity - 1);
-            localStorage.setItem("generatedNumbers", JSON.stringify(generatedNumbers));
-            displayResults();
-        }
+    function displayResults() {
+      const output = document.getElementById("output");
+      output.innerHTML = "";
+      const sortedMonths = Object.keys(generatedNumbers).sort().reverse();
+      sortedMonths.forEach(monthKey => {
+        output.innerHTML += `<h3>${monthKey.slice(0,2)} 年 ${monthKey.slice(2)} 月</h3>`;
+        const sortedNumbers = generatedNumbers[monthKey].sort();
+        sortedNumbers.forEach(sn => output.innerHTML += `<p>${sn}</p>`);
+      });
+    }
 
-        function sendToGoogleSheet(productName, productCode, serial, yearMonth) {
-            fetch("https://script.google.com/macros/s/AKfycbzemYdp_2iU-xBikgWf_bUm0anjDCbYBPs6AbwIoLF1xJ8E2_DD5kNXv67A8IRg_ILB3Q/exec", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    productName: productName,
-                    productCode: productCode,
-                    serialNumber: productCode + serial + yearMonth,
-                    yearMonth: yearMonth
-                })
-            })
-            .then(res => res.text())
-            .then(response => console.log("儲存成功：", response))
-            .catch(error => console.error("儲存失敗：", error));
-        }
-
-        function displayResults() {
-            const output = document.getElementById("output");
-            output.innerHTML = "";
-            const sortedMonths = Object.keys(generatedNumbers).sort().reverse();
-            sortedMonths.forEach(monthKey => {
-                output.innerHTML += `<h3>${monthKey.slice(0,2)} 年 ${monthKey.slice(2)} 月</h3>`;
-                const sortedNumbers = generatedNumbers[monthKey].sort();
-                sortedNumbers.forEach(sn => {
-                    output.innerHTML += `<p>${sn}</p>`;
-                });
-            });
-        }
-
-        window.onload = function () {
-            displayResults();
-        };
-    </script>
+    window.onload = () => displayResults();
+  </script>
 </head>
 <body>
-    <h2>流水編號產生器</h2>
-    <label for="productName">選擇產品：</label>
+  <h2>流水編號產生器</h2>
+  <label>選擇產品：
     <select id="productName">
-        <option value="">--請選擇--</option>
-        <option value="PLLA">PLLA</option>
-        <option value="DYS">DYS</option>
-        <option value="NRN">NRN</option>
-        <option value="BOTOX">BOTOX</option>
-        <option value="PLUS">PLUS</option>
-        <option value="VOLUX">VOLUX</option>
-        <option value="VOLUMA">VOLUMA</option>
-        <option value="VOLBELLA">VOLBELLA</option>
-        <option value="VOLITE">VOLITE</option>
-        <option value="BKR">BKR</option>
-        <option value="RDS">RDS</option>
-        <option value="SXD">SXD</option>
-        <option value="ELS">ELS</option>
-        <option value="ELM">ELM</option>
-        <option value="CF">CF</option>
-        <option value="QT">QT</option>
-        <option value="VT">VT</option>
-        <option value="DT">DT</option>
-        <option value="NL">NL</option>
-        <option value="MTD">MTD</option>
-        <option value="MTR">MTR</option>
-        <option value="PDLA">PDLA</option>
-        <option value="VBL50">VBL50</option>
-        <option value="VBL200">VBL200</option>
+      <option value="">--請選擇--</option>
+      <option value="PLLA">PLLA</option>
+      <option value="DYS">DYS</option>
+      <option value="NRN">NRN</option>
+      <option value="BOTOX">BOTOX</option>
+      <option value="PLUS">PLUS</option>
+      <option value="VOLUX">VOLUX</option>
+      <option value="VOLUMA">VOLUMA</option>
+      <option value="VOLBELLA">VOLBELLA</option>
+      <option value="VOLITE">VOLITE</option>
+      <option value="BKR">BKR</option>
+      <option value="RDS">RDS</option>
+      <option value="SXD">SXD</option>
+      <option value="ELS">ELS</option>
+      <option value="ELM">ELM</option>
+      <option value="CF">CF</option>
+      <option value="QT">QT</option>
+      <option value="VT">VT</option>
+      <option value="DT">DT</option>
+      <option value="NL">NL</option>
+      <option value="MTD">MTD</option>
+      <option value="MTR">MTR</option>
+      <option value="PDLA">PDLA</option>
+      <option value="VBL50">VBL50</option>
+      <option value="VBL200">VBL200</option>
     </select>
-    <br>
-    <label for="month">月份：</label>
-    <input type="number" id="month" placeholder="輸入月份" min="1" max="12">
-    <br>
-    <label for="quantity">數量：</label>
-    <input type="number" id="quantity" placeholder="輸入數量" min="1">
-    <button onclick="generateSerialNumbers()">產生流水號</button>
-    <h3>產生結果：</h3>
-    <div id="output"></div>
+  </label>
+  <br>
+  <label>月份：<input type="number" id="month" min="1" max="12" placeholder="MM"></label>
+  <br>
+  <label>數量：<input type="number" id="quantity" min="1" placeholder="輸入數量"></label>
+  <br>
+  <button onclick="generateSerialNumbers()">產生流水號</button>
+  <h3>產生結果：</h3>
+  <div id="output"></div>
 </body>
 </html>
